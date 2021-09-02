@@ -1,11 +1,7 @@
 import numpy as np
-import os
+import os, requests, base64, sys, tarfile, zipfile, pathlib, cv2
 import six.moves.urllib as urllib
-import sys
-import tarfile
 import tensorflow as tf
-import zipfile
-import pathlib
 from collections import defaultdict
 from io import StringIO
 from matplotlib import pyplot as plt
@@ -14,7 +10,6 @@ from IPython.display import display
 from object_detection.utils import ops as utils_ops
 from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as vis_util
-import cv2
 
 def load_model(model_name):
   base_url = 'http://download.tensorflow.org/models/object_detection/'
@@ -30,18 +25,12 @@ def run_inference_for_single_image(model, image):
   input_tensor = input_tensor[tf.newaxis,...]
   model_fn = model.signatures['serving_default']
   output_dict = model_fn(input_tensor)
-
   num_detections = int(output_dict.pop('num_detections'))
-  output_dict = {
-                key:value[0, :num_detections].numpy() for key,value in output_dict.items()
-    }
+  output_dict = {key:value[0, :num_detections].numpy() for key,value in output_dict.items()}
   output_dict['num_detections'] = num_detections
   output_dict['detection_classes'] = output_dict['detection_classes'].astype(np.int64)
-
   if 'detection_masks' in output_dict:
-    detection_masks_reframed = utils_ops.reframe_box_masks_to_image_masks(
-                output_dict['detection_masks'], output_dict['detection_boxes'],
-                image.shape[0], image.shape[1])
+    detection_masks_reframed = utils_ops.reframe_box_masks_to_image_masks(output_dict['detection_masks'], output_dict['detection_boxes'],image.shape[0], image.shape[1])
     detection_masks_reframed = tf.cast(detection_masks_reframed > 0.5, tf.uint8)
     output_dict['detection_masks_reframed'] = detection_masks_reframed.numpy()
   return output_dict
@@ -60,8 +49,7 @@ def show_inference(model, frame):
       line_thickness=5)
   return(image_np)
 
-PATH_TO_LABELS = 'mscoco_label_map.pbtxt'
-category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)
+category_index = label_map_util.create_category_index_from_labelmap('mscoco_label_map.pbtxt', use_display_name=True)
 model_name = 'ssd_inception_v2_coco_2017_11_17'
 detection_model = load_model(model_name)
 
